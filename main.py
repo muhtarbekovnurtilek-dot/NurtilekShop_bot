@@ -1,11 +1,29 @@
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import telebot
 from telebot import types
 import urllib.parse
 
-# ⚠️ Бул жерге @BotFather берген токенди жазыңыз
-TOKEN = "8469117365:AAHBuPCMromQLJoEuagEZ9es5TQQ7B6koYs"
+# ⚠️ Render'деги Environment Варианттарынан BOT_TOKEN кошсоң коопсуз болот.
+# Эгер токенди түз жазгың келсе, төмөнкү сапты өчүрүп, өзүңдүн токениңди жаз:
+TOKEN = os.environ.get('BOT_TOKEN', "8469117365:AAHBuPCMromQLJoEuagEZ9es5TQQ7B6koYs")
 
 bot = telebot.TeleBot(TOKEN)
+
+# --- ВЕБ-СЕРВЕР ДЛЯ RENDER (ОШИБКА ОПЕН ПОРТС БОЛБОШ ҮЧҮН) ---
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is running successfully!")
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+# -----------------------------------------------------------
 
 # Текстти шилтемеге туура форматтап (URL-encode) кошуу үчүн функция
 def create_tg_url(text):
@@ -150,5 +168,10 @@ def callback(call):
 
     bot.answer_callback_query(call.id)
 
-print("Бот ийгиликтүү ишке кирди...")
-bot.infinity_polling()
+# --- БОТТУ ИШКЕ КИРГИЗҮҮ ---
+if __name__ == '__main__':
+    # Адегенде веб-серверди өзүнчө агымда иштетебиз (Render үчүн керек)
+    threading.Thread(target=run_health_server, daemon=True).start()
+    
+    print("Бот ийгиликтүү ишке кирди жана Telegram серверлерин угуп жатат...")
+    bot.infinity_polling()
